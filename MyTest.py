@@ -15,12 +15,15 @@ for codeName in codeArray:
         
 #导入源码
 from JsonUtil import *
+from ConfParser import *
 
 etcPath = os.path.join(os.path.join(__file__, "../etc"))
 
 class MyUnitTest(unittest.TestCase):
     def setUp(self):
         #初始化测试类
+        confPath = os.path.abspath(os.path.join(etcPath, "ConfParser/test.conf"))
+        self.testConfParser = ConfParser(confPath)
         pass
 
     def teardown(self):
@@ -142,14 +145,264 @@ class MyUnitTest(unittest.TestCase):
         ret = saveJsonFile(saveFile4, 88)
         self.assertEqual(ret, (True, "success"))
 
+    #ConfParser的测试样例
+    def test_getValueFromConf(self):
+        confName = os.path.abspath(os.path.join(etcPath, "ConfParser/test.conf"))
+        result = getValueFromConf(confName, "Test1", "test1")
+        self.assertEqual(result, (True, "success", "1"))
+
+        result = getValueFromConf(confName, "Test2", "test12")
+        self.assertEqual(result, (True, "success", "test222"))
+
+        result = getValueFromConf(confName, "Test1", "test3")
+        self.assertEqual(result, (True, "success", "测试样例"))
+
+        result = getValueFromConf(confName, "Test1", "测试")
+        self.assertEqual(result, (True, "success", "测试样例2"))
+
+        result = getValueFromConf(confName, "Test1", "test4")
+        self.assertEqual(result, (True, "success", "55.77"))
+
+        result = getValueFromConf(confName, "Test3", "test33")
+        self.assertEqual(result, (True, "success", ""))
+
+        result = getValueFromConf(confName, "Test3", "test44")
+        self.assertEqual(result, (True, "success", "=676"))
+
+        result = getValueFromConf(confName, "Test3", "test55")
+        self.assertEqual(result, (False, "get value from %s error, error is No option 'test55' in section: 'Test3'" % confName, None))
+        
+        result = getValueFromConf(confName, "Test2", "test6")
+        self.assertEqual(result, (False, "get value from %s error, error is No option 'test6' in section: 'Test2'" % confName, None))
+
+        result = getValueFromConf(None, "test", "test")
+        self.assertEqual(result, (False, "confFileName is None", None))
+
+        result = getValueFromConf(confName, None, "test")
+        self.assertEqual(result, (False, "option is None", None))
+        
+        result = getValueFromConf(confName, "Test3", None)
+        self.assertEqual(result, (False, "key is None", None))
+        
+        result = getValueFromConf("", "Test3", "test")
+        self.assertEqual(result, (False, "confFileName is None", None))
+
+        result = getValueFromConf("/Temp1/Temp2/Temp3", "Test3", "test")
+        self.assertEqual(result, (False, "/Temp1/Temp2/Temp3 is not a file", None))
+        
+        errorConfName = os.path.abspath(os.path.join(etcPath, "ConfParser/error.conf"))
+        result = getValueFromConf(errorConfName, "Test2", "test11")
+        self.assertEqual(result, (False, "get value from %s error, error is Source contains parsing errors: '%s'\n\t[line 20]: '[Test4\\n'"%(errorConfName, errorConfName), None))
+
+    def test_getValueWithDefault(self):
+        confName = os.path.abspath(os.path.join(etcPath, "ConfParser/test.conf"))
+        result = getValueWithDefault(confName, "Test1", "test1", "2")
+        self.assertEqual(result, "1")
+
+        result = getValueWithDefault(confName, "Test2", "test12", "333")
+        self.assertEqual(result, "test222")
+
+        result = getValueWithDefault(confName, "Test1", "test3", "测试")
+        self.assertEqual(result, "测试样例")
+
+        result = getValueWithDefault(confName, "Test1", "测试", 333)
+        self.assertEqual(result, "测试样例2")
+
+        result = getValueWithDefault(confName, "Test1", "test4", 88.7)
+        self.assertEqual(result, "55.77")
+
+        result = getValueWithDefault(confName, "Test3", "test33", "test")
+        self.assertEqual(result, "")
+
+        result = getValueWithDefault(confName, "Test3", "test44", "nottest")
+        self.assertEqual(result, "=676")
+
+        result = getValueWithDefault(confName, "Test3", "test55", 8)
+        self.assertEqual(result, 8)
+        
+        result = getValueWithDefault(confName, "Test2", "test6", "测试结果")
+        self.assertEqual(result, "测试结果")
+
+        result = getValueWithDefault(None, "test", "test", 37.8)
+        self.assertEqual(result, 37.8)
+
+        result = getValueWithDefault(confName, None, "test", "test2")
+        self.assertEqual(result, "test2")
+        
+        result = getValueWithDefault(confName, "Test3", None, None)
+        self.assertEqual(result, None)
+        
+        result = getValueWithDefault("", "Test3", "test", "testresult")
+        self.assertEqual(result, "testresult")
+
+        result = getValueWithDefault("/Temp1/Temp2/Temp3", "Test3", "test", None)
+        self.assertEqual(result, None)
+
+        errorConfName = os.path.abspath(os.path.join(etcPath, "ConfParser/error.conf"))
+        result = getValueWithDefault(errorConfName, "Test2", "test11", "error")
+        self.assertEqual(result, "error")
+
+    def test_Class_ConfParser_init(self):
+        parserResult = ConfParser("/Temp1/Temp2/Temp3")
+        self.assertLogs(parserResult, "init ConfParser")
+        
+    def test_Class_ConfParser_getValue(self):
+        result = self.testConfParser.getValue("Test1", "test1")
+        self.assertEqual(result, "1")
+
+        result = self.testConfParser.getValue("Test2", "test12")
+        self.assertEqual(result, "test222")
+
+        result = self.testConfParser.getValue("Test1", "test3")
+        self.assertEqual(result, "测试样例")
+
+        result = self.testConfParser.getValue("Test1", "测试")
+        self.assertEqual(result, "测试样例2")
+
+        result = self.testConfParser.getValue("Test1", "test4")
+        self.assertEqual(result, "55.77")
+
+        result = self.testConfParser.getValue("Test3", "test33")
+        self.assertEqual(result, "")
+
+        result = self.testConfParser.getValue("Test3", "test44")
+        self.assertEqual(result, "=676")
+
+        result = self.testConfParser.getValue("Test3", "test55")
+        self.assertEqual(result, None)
+        
+        result = self.testConfParser.getValue("Test2", "test6")
+        self.assertEqual(result, None)
+
+        result = self.testConfParser.getValue("test", "test")
+        self.assertEqual(result, None)
+
+        result = self.testConfParser.getValue(None, "test")
+        self.assertEqual(result, None)
+        
+        result = self.testConfParser.getValue("Test3", None)
+        self.assertEqual(result, None)
+        
+        result = self.testConfParser.getValue("Test3", "test")
+        self.assertEqual(result, None)
+        
+        errorConfPath = os.path.abspath(os.path.join(etcPath, "ConfParser/error.conf"))
+        parserResult = ConfParser(errorConfPath)
+        self.assertLogs(parserResult, "init ConfParser error, error is Source contains parsing errors: '/Users/wxj/workplace/MyProject/github/PyTestModule/etc/ConfParser/error.conf'\n[line 20]: '[Test4\n'")
+        
+        result = parserResult.getValue("Test2", "test11")
+        self.assertEqual(result, "11")
+
+    def test_Class_ConfParser_getValueWithDefault(self):
+        result = self.testConfParser.getValueWithDefault("Test1", "test1", 1)
+        self.assertEqual(result, "1")
+
+        result = self.testConfParser.getValueWithDefault("Test2", "test12", "test3")
+        self.assertEqual(result, "test222")
+
+        result = self.testConfParser.getValueWithDefault("Test1", "test3", 99.7)
+        self.assertEqual(result, "测试样例")
+
+        result = self.testConfParser.getValueWithDefault("Test1", "测试", "default")
+        self.assertEqual(result, "测试样例2")
+
+        result = self.testConfParser.getValueWithDefault("Test1", "test4", "55.88")
+        self.assertEqual(result, "55.77")
+
+        result = self.testConfParser.getValueWithDefault("Test3", "test33", 'abc')
+        self.assertEqual(result, "abc")
+
+        result = self.testConfParser.getValueWithDefault("Test3", "test44", 'test')
+        self.assertEqual(result, "=676")
+
+        result = self.testConfParser.getValueWithDefault("Test3", "test55", 'a')
+        self.assertEqual(result, 'a')
+        
+        result = self.testConfParser.getValueWithDefault("Test2", "test6", "测试结果")
+        self.assertEqual(result, "测试结果")
+
+        result = self.testConfParser.getValueWithDefault("test", "test", 22)
+        self.assertEqual(result, 22)
+
+        result = self.testConfParser.getValueWithDefault(None, "test", "testresult")
+        self.assertEqual(result, "testresult")
+        
+        result = self.testConfParser.getValueWithDefault("Test3", None, "temp")
+        self.assertEqual(result, "temp")
+        
+        result = self.testConfParser.getValueWithDefault("Test3", "test", 66.7)
+        self.assertEqual(result, 66.7)
+        
+        errorConfPath = os.path.abspath(os.path.join(etcPath, "ConfParser/error.conf"))
+        parserResult = ConfParser(errorConfPath)
+        result = parserResult.getValueWithDefault("Test2", "test11", "test33")
+        self.assertEqual(result, "11")
+        
+    def test_Class_ConfParser_getIntWithDefault(self):
+        result = self.testConfParser.getIntWithDefault("Test1", "test1", 1)
+        self.assertEqual(result, 1)
+
+        result = self.testConfParser.getIntWithDefault("Test2", "test12", "test3")
+        self.assertEqual(result, None)
+
+        result = self.testConfParser.getIntWithDefault("Test1", "test3", 99.7)
+        self.assertEqual(result, None)
+
+        result = self.testConfParser.getIntWithDefault("Test1", "测试", "default")
+        self.assertEqual(result, None)
+
+        result = self.testConfParser.getIntWithDefault("Test1", "test4", "55.88")
+        self.assertEqual(result, 55)
+
+        result = self.testConfParser.getIntWithDefault("Test3", "test33", 'abc')
+        self.assertEqual(result, None)
+
+        result = self.testConfParser.getIntWithDefault("Test3", "test44", 'test')
+        self.assertEqual(result, None)
+
+        result = self.testConfParser.getIntWithDefault("Test3", "test55", 'a')
+        self.assertEqual(result, None)
+        
+        result = self.testConfParser.getIntWithDefault("Test2", "test6", "测试结果")
+        self.assertEqual(result, None)
+
+        result = self.testConfParser.getIntWithDefault("test", "test", 22)
+        self.assertEqual(result, 22)
+
+        result = self.testConfParser.getIntWithDefault("test", "test", -2)
+        self.assertEqual(result, -2)
+
+        result = self.testConfParser.getIntWithDefault(None, "test", "testresult")
+        self.assertEqual(result, None)
+        
+        result = self.testConfParser.getIntWithDefault("Test3", None, "temp")
+        self.assertEqual(result, None)
+        
+        result = self.testConfParser.getIntWithDefault("Test3", "test", 66.7)
+        self.assertEqual(result, 66)
+
+        result = self.testConfParser.getIntWithDefault("Test2", "test7", 66)
+        self.assertEqual(result, -33)
+        
+        errorConfPath = os.path.abspath(os.path.join(etcPath, "ConfParser/error.conf"))
+        parserResult = ConfParser(errorConfPath)
+        result = parserResult.getIntWithDefault("Test2", "test11", "test33")
+        self.assertEqual(result, 11)
+
 if __name__ == "__main__":
     suite = unittest.TestSuite()
-    
     suite.addTest(MyUnitTest('test_getJsonFromFile'))
     suite.addTest(MyUnitTest('test_getJsonFromStr'))
     suite.addTest(MyUnitTest('test_valueFromJsonFile'))
     suite.addTest(MyUnitTest('test_valeFromJsonStr'))
     suite.addTest(MyUnitTest('test_saveJsonFile'))
+
+    suite.addTest(MyUnitTest('test_getValueFromConf'))
+    suite.addTest(MyUnitTest('test_getValueWithDefault'))
+    suite.addTest(MyUnitTest('test_Class_ConfParser_init'))
+    suite.addTest(MyUnitTest('test_Class_ConfParser_getValue'))
+    suite.addTest(MyUnitTest('test_Class_ConfParser_getValueWithDefault'))
+    suite.addTest(MyUnitTest('test_Class_ConfParser_getIntWithDefault'))
 
     runner = unittest.TextTestRunner()
     runner.run(suite)
