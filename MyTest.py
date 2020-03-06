@@ -16,6 +16,7 @@ for codeName in codeArray:
 #导入源码
 from JsonUtil import *
 from ConfParser import *
+from EmailSender import *
 
 etcPath = os.path.join(os.path.join(__file__, "../etc"))
 
@@ -389,6 +390,12 @@ class MyUnitTest(unittest.TestCase):
         result = parserResult.getIntWithDefault("Test2", "test11", "test33")
         self.assertEqual(result, 11)
 
+    def test_sendEmail(self):
+        attach1 = os.path.abspath(os.path.join(__file__, "../README.md"))
+        result = sendEmail('smtp.qq.com', '***@qq.com', '***', ['***@qq.com', '***@qq.com'], '**<***@qq.com>, **<***@qq.com>', "测试邮件", "这是一封测试邮件", {attach1: "log1"})
+        #self.assertLogs(result, "email send success.")
+        self.assertLogs(result, "email send error:  (535, b'Login Fail. Please enter your authorization code to login. More information in http://service.mail.qq.com/cgi-bin/help?subtype=1&&id=28&&no=1001256')")
+
 if __name__ == "__main__":
     suite = unittest.TestSuite()
     suite.addTest(MyUnitTest('test_getJsonFromFile'))
@@ -403,6 +410,8 @@ if __name__ == "__main__":
     suite.addTest(MyUnitTest('test_Class_ConfParser_getValue'))
     suite.addTest(MyUnitTest('test_Class_ConfParser_getValueWithDefault'))
     suite.addTest(MyUnitTest('test_Class_ConfParser_getIntWithDefault'))
+
+    suite.addTest(MyUnitTest('test_sendEmail'))
 
     runner = unittest.TextTestRunner()
     runner.run(suite)
