@@ -25,16 +25,11 @@ class MyUnitTest(unittest.TestCase):
     def setUp(self):
         #初始化测试类
         confPath = os.path.abspath(os.path.join(etcPath, "ConfParser/test.conf"))
-        #self.testConfParser = ConfParser(confPath)
-
-        #获取对应的logger
-        #self.jsonLogger = logging.getLogger("JsonUtil")
-        
-        pass
+        self.testConfParser = ConfParser(confPath)
 
     def teardown(self):
         pass
-    
+
     # JsonUtil的测试样例
     def test_getJsonFromFile(self):
         testJsonFile = os.path.abspath(os.path.join(etcPath, "JsonUtil/test1.json"))
@@ -411,17 +406,21 @@ class MyUnitTest(unittest.TestCase):
         errorConfPath = os.path.abspath(os.path.join(etcPath, "ConfParser/error.conf"))
         parserResult = ConfParser(errorConfPath)
         result = parserResult.getIntWithDefault("Test2", "test11", "test33")
-        self.assertEqual(result, 11)    
-    '''
+        self.assertEqual(result, 11)  
+    
+    #EmailSender的测试样例
     def test_sendEmail(self):
-        with self.assertLogs(emailLogger) as log:
-            attach1 = os.path.abspath(os.path.join(__file__, "../README.md"))
-            result = sendEmail('smtp.qq.com', '***@qq.com', '***', ['***@qq.com', '***@qq.com'], '**<***@qq.com>, **<***@qq.com>', "测试邮件", "这是一封测试邮件", {attach1: "log1"})
-            #successStr = "email send success."
-            #self.assertEqual(log.output, ["DEBUG:EmailSender:%s"%successStr])
-            errorStr = "email send error:  (535, b'Login Fail. Please enter your authorization code to login. More information in http://service.mail.qq.com/cgi-bin/help?subtype=1&&id=28&&no=1001256')"
-            self.assertEqual(log.output, ["ERROR:EmailSender:%s"%errorStr])
-            '''
+        attach1 = os.path.abspath(os.path.join(__file__, "../README.md"))
+        result = sendEmail('smtp.qq.com', '***@qq.com', '***', ['***@qq.com', '***@qq.com'], '**<***@qq.com>, **<***@qq.com>', "测试邮件", "这是一封测试邮件", {attach1: "log1"})
+        self.assertFalse(result)
+        #result = sendEmail('smtp.qq.com', '***@qq.com', '***', ['***@qq.com', '***@qq.com'], '**<***@qq.com>, **<***@qq.com>', "测试邮件", "这是一封测试邮件", {attach1: "log1"})
+        #self.assertTrue(result)
         
 if __name__ == "__main__":
     unittest.main()
+    '''
+    suite = unittest.TestSuite()
+    suite.addTest(MyUnitTest("test_sendEmail"))
+    runner = unittest.TextTestRunner()
+    runner.run(suite)
+    '''
