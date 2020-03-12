@@ -150,6 +150,80 @@ class MyUnitTest(unittest.TestCase):
         ret = saveJsonFile(saveFile4, 88)
         self.assertEqual(ret, (True, "success"))
     
+    def test_getDefaultFromJsonObj(self):
+        testJsonFile = os.path.abspath(os.path.join(etcPath, "JsonUtil/test4.json"))
+        result, jsonObj = getJsonFromFile(testJsonFile)
+        result = getDefaultFromJsonObj("A", jsonObj)
+        self.assertEqual(result, ('a', 'success'))
+
+        result = getDefaultFromJsonObj("B", jsonObj)
+        self.assertEqual(result, ('b', 'success'))
+
+        result = getDefaultFromJsonObj("E", jsonObj)
+        self.assertEqual(result, ({"E1": "e1", "E2": "e2", "E3": 1}, 'success'))
+        
+        result = getDefaultFromJsonObj("测试", jsonObj)
+        self.assertEqual(result, ("测试结果", 'success'))
+
+        result = getDefaultFromJsonObj("H", jsonObj)
+        self.assertEqual(result, ("H测试", 'success'))
+
+        result = getDefaultFromJsonObj("default", jsonObj)
+        self.assertEqual(result, ({"de1": "default1","默认": "默认1","默认2": "默认2"}, 'success'))
+        
+        result = getDefaultFromJsonObj("my test key", jsonObj)
+        self.assertEqual(result, ("my test key", 'success'))
+        
+        result = getDefaultFromJsonObj(" ", jsonObj)
+        self.assertEqual(result, ({"de1": "default1","默认": "默认1","默认2": "默认2"}, 'success'))
+        
+        result = getDefaultFromJsonObj("G", jsonObj)
+        self.assertEqual(result, (["g1", "g2", "g3"], 'success'))
+        
+        with self.assertLogs(jsonLogger) as log:
+            result = getDefaultFromJsonObj("test5", jsonObj)
+            self.assertEqual(result, ({"test51": "333","test52": "444"}, 'success'))
+
+            tempResult = getDefaultFromJsonObj("test53", result[0])
+            self.assertEqual(tempResult, (None, "test53 is not found in jsonObj"))
+            result = getDefaultFromJsonObj(None, jsonObj)
+            self.assertEqual(result, (None, 'key or jsonObj is None'))
+
+            result = getDefaultFromJsonObj("", jsonObj)
+            self.assertEqual(result, (None, 'key or jsonObj is None'))
+            
+            result = getDefaultFromJsonObj("H", None)
+            self.assertEqual(result, (None, 'key or jsonObj is None'))
+            
+            result = getDefaultFromJsonObj("H", "")
+            self.assertEqual(result, (None, 'key or jsonObj is None'))
+
+            self.assertEqual(log.output, ["ERROR:JsonUtil:test53 is not found in jsonObj", "ERROR:JsonUtil:key or jsonObj is None", "ERROR:JsonUtil:key or jsonObj is None", "ERROR:JsonUtil:key or jsonObj is None", "ERROR:JsonUtil:key or jsonObj is None"])
+        
+        result = getDefaultFromJsonObj("H", " ")
+        self.assertEqual(result, (" ", "success"))
+
+        result = getDefaultFromJsonObj('"\\"', jsonObj)
+        self.assertEqual(result, ("特殊测试", "success"))
+
+        result = getDefaultFromJsonObj('test', 33)
+        self.assertEqual(result, (33, "success"))
+        
+        result = getDefaultFromJsonObj('test', "测试")
+        self.assertEqual(result, ("测试", "success"))
+        
+        result = getDefaultFromJsonObj('test', "test a string")
+        self.assertEqual(result, ("test a string", "success"))
+        
+        result = getDefaultFromJsonObj('test', 77.8)
+        self.assertEqual(result, (77.8, "success"))
+        
+        result = getDefaultFromJsonObj('test', [33, 55, 88, 66])
+        self.assertEqual(result, ([33, 55, 88, 66], "success"))
+        
+        result = getDefaultFromJsonObj('test', ("success", {"A": 1, "B": 2}, [22.7, 33.6, 55.4]))
+        self.assertEqual(result, (("success", {"A": 1, "B": 2}, [22.7, 33.6, 55.4]), "success"))
+    
     #ConfParser的测试样例
     def test_getValueFromConf(self):
         confName = os.path.abspath(os.path.join(etcPath, "ConfParser/test.conf"))
