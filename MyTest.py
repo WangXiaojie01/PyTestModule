@@ -3,6 +3,7 @@
 
 import os, sys
 import unittest
+import logging
 
 #在这里添加要进行单元测试的源码目录名
 codeArray = ["ConfParser", "JsonUtil", "LoggerController", "MySqlUtil", "PublisherSubscriber", "EmailSender", "EmailController"]
@@ -24,7 +25,11 @@ class MyUnitTest(unittest.TestCase):
     def setUp(self):
         #初始化测试类
         confPath = os.path.abspath(os.path.join(etcPath, "ConfParser/test.conf"))
-        self.testConfParser = ConfParser(confPath)
+        #self.testConfParser = ConfParser(confPath)
+
+        #获取对应的logger
+        #self.jsonLogger = logging.getLogger("JsonUtil")
+        
         pass
 
     def teardown(self):
@@ -40,18 +45,19 @@ class MyUnitTest(unittest.TestCase):
         ret = getJsonFromFile(testJsonFile)
         self.assertEqual(ret, (True, [ "A", "B", "C", "D", "E"]))
         
-        testJsonFile = os.path.abspath(os.path.join(etcPath, "JsonUtil/None.json"))
-        print(type(testJsonFile))
-        ret = getJsonFromFile(testJsonFile)
-        self.assertLogs(ret, "exception is [Errno 2] No such file or directory: '/Users/wxj/workplace/MyProject/github/PyTestModule/etc/JsonUtil/None.json")
-        self.assertEqual(ret, (False, "[Errno 2] No such file or directory: '/Users/wxj/workplace/MyProject/github/PyTestModule/etc/JsonUtil/None.json'"))
-        
-        testJsonFile = os.path.abspath(os.path.join(etcPath, "JsonUtil/error.json"))
-        ret = getJsonFromFile(testJsonFile)
-        if sys.version_info.major == 3:
-            self.assertLogs(ret, "exception is Expecting value: line 7 column 11 (char 66)")
-            self.assertEqual(ret, (False, "Expecting value: line 7 column 11 (char 66)"))
-        
+        with self.assertLogs(jsonLogger) as log:
+            testJsonFile = os.path.abspath(os.path.join(etcPath, "JsonUtil/None.json"))
+            ret = getJsonFromFile(testJsonFile)
+            self.assertFalse(ret[0])
+            
+            testJsonFile = os.path.abspath(os.path.join(etcPath, "JsonUtil/error.json"))
+            ret = getJsonFromFile(testJsonFile)
+            self.assertFalse(ret[0])
+
+            errorStr1 = "exception is [Errno 2] No such file or directory: '/Users/wxj/workplace/MyProject/github/PyTestModule/etc/JsonUtil/None.json'"
+            errorStr2 = "exception is Expecting value: line 7 column 11 (char 66)"
+            self.assertEqual(log.output, ['ERROR:JsonUtil:%s'%errorStr1, 'ERROR:JsonUtil:%s'%errorStr2])
+    
     def test_getJsonFromStr(self):
         jsonStr = "{\"A\": \"a\",\"B\": \"b\",\"C\": 0,\"D\": \"d\",\"E\": {\"E1\": \"e1\",\"E2\": \"e2\",\"E3\": 1}}"
         ret = getJsonFromStr(jsonStr)
@@ -61,9 +67,12 @@ class MyUnitTest(unittest.TestCase):
         ret = getJsonFromStr(jsonStr)
         self.assertEqual(ret, (True, [ "A", "B", "C", "D", "E"]))
         
-        jsonStr = "{\"A\": \"a\",B\": \"b\",\"C\": 0,\"D\": \"d\",\"E\": {\"E1\": \"e1\",\"E2\": \"e2\",\"E3\": 1}}"
-        ret = getJsonFromStr(jsonStr)
-        self.assertEqual(ret, (False, "Expecting property name enclosed in double quotes: line 1 column 11 (char 10)"))
+        with self.assertLogs(jsonLogger) as log:
+            jsonStr = "{\"A\": \"a\",B\": \"b\",\"C\": 0,\"D\": \"d\",\"E\": {\"E1\": \"e1\",\"E2\": \"e2\",\"E3\": 1}}"
+            ret = getJsonFromStr(jsonStr)
+            self.assertFalse(ret[0])
+            errorStr = "exception is Expecting property name enclosed in double quotes: line 1 column 11 (char 10)"
+            self.assertEqual(log.output, ["ERROR:JsonUtil:%s"%errorStr])
         
     def test_valueFromJsonFile(self):
         testJsonFile = os.path.abspath(os.path.join(etcPath, "JsonUtil/test3.json"))
@@ -97,7 +106,7 @@ class MyUnitTest(unittest.TestCase):
         testJsonFile = os.path.abspath(os.path.join(etcPath, "JsonUtil/error.json"))
         ret = valueFromJsonFile('D', testJsonFile)
         self.assertFalse(ret)
-
+    
     def test_valeFromJsonStr(self):
         jsonStr = "{\"A\": \"a\", \"B\": \"b\", \"C\": 7, \"D\": \"d\", \"E\": {\"E1\": \"e1\", \"E2\": \"e2\", \"E3\": 1}, \"F\": 8.1, \"G\": [\"g1\", \"g2\", \"g3\"], \"测试\": \"中文测试\"}"
 
@@ -128,7 +137,7 @@ class MyUnitTest(unittest.TestCase):
         jsonStr = "{\"A\": a\", \"B\": \"b\", \"C\": 7, \"D\": \"d\", \"E\": {\"E1\": \"e1\", \"E2\": \"e2\", \"E3\": 1}, \"F\": 8.1, \"G\": [\"g1\", \"g2\", \"g3\"]}"
         ret = valueFromJsonStr('B', jsonStr)
         self.assertFalse(ret)
-
+    
     def test_saveJsonFile(self):
         saveFile1 = os.path.abspath(os.path.join(etcPath, "JsonUtil/save1.json"))
         jsonData = {"A": "a", "B": "b", "C": 7, "D": "d", "E": {"E1": "e1", "E2": "e2", "E3": 1}, "F": 8.1, "G": ["g1", "g2", "g3"], u"测试": u"中文测试"}
@@ -145,7 +154,7 @@ class MyUnitTest(unittest.TestCase):
         saveFile4 = os.path.abspath(os.path.join(etcPath, "JsonUtil/save4.json"))
         ret = saveJsonFile(saveFile4, 88)
         self.assertEqual(ret, (True, "success"))
-
+    
     #ConfParser的测试样例
     def test_getValueFromConf(self):
         confName = os.path.abspath(os.path.join(etcPath, "ConfParser/test.conf"))
@@ -170,31 +179,42 @@ class MyUnitTest(unittest.TestCase):
         result = getValueFromConf(confName, "Test3", "test44")
         self.assertEqual(result, (True, "success", "=676"))
 
-        result = getValueFromConf(confName, "Test3", "test55")
-        self.assertEqual(result, (False, "get value from %s error, error is No option 'test55' in section: 'Test3'" % confName, None))
-        
-        result = getValueFromConf(confName, "Test2", "test6")
-        self.assertEqual(result, (False, "get value from %s error, error is No option 'test6' in section: 'Test2'" % confName, None))
+        with self.assertLogs(confLogger) as log:
+            result = getValueFromConf(confName, "Test3", "test55")
+            self.assertFalse(result[0])
+            
+            result = getValueFromConf(confName, "Test2", "test6")
+            self.assertFalse(result[0])
 
-        result = getValueFromConf(None, "test", "test")
-        self.assertEqual(result, (False, "confFileName is None", None))
+            result = getValueFromConf(None, "test", "test")
+            self.assertFalse(result[0])
 
-        result = getValueFromConf(confName, None, "test")
-        self.assertEqual(result, (False, "option is None", None))
-        
-        result = getValueFromConf(confName, "Test3", None)
-        self.assertEqual(result, (False, "key is None", None))
-        
-        result = getValueFromConf("", "Test3", "test")
-        self.assertEqual(result, (False, "confFileName is None", None))
+            result = getValueFromConf(confName, None, "test")
+            self.assertFalse(result[0])
 
-        result = getValueFromConf("/Temp1/Temp2/Temp3", "Test3", "test")
-        self.assertEqual(result, (False, "/Temp1/Temp2/Temp3 is not a file", None))
-        
-        errorConfName = os.path.abspath(os.path.join(etcPath, "ConfParser/error.conf"))
-        result = getValueFromConf(errorConfName, "Test2", "test11")
-        self.assertEqual(result, (False, "get value from %s error, error is Source contains parsing errors: '%s'\n\t[line 20]: '[Test4\\n'"%(errorConfName, errorConfName), None))
+            result = getValueFromConf(confName, "Test3", None)
+            self.assertFalse(result[0])
+            
+            result = getValueFromConf("", "Test3", "test")
+            self.assertFalse(result[0])
 
+            result = getValueFromConf("/Temp1/Temp2/Temp3", "Test3", "test")
+            self.assertFalse(result[0])
+            
+            errorConfName = os.path.abspath(os.path.join(etcPath, "ConfParser/error.conf"))
+            result = getValueFromConf(errorConfName, "Test2", "test11")
+            self.assertFalse(result[0])
+            
+            errorStr1 = "get value from %s error, error is No option 'test55' in section: 'Test3'" % confName
+            errorStr2 = "get value from %s error, error is No option 'test6' in section: 'Test2'" % confName
+            errorStr3 = "confFileName is None"
+            errorStr4 = "option is None"
+            errorStr5 = "key is None"
+            errorStr6 = "confFileName is None"
+            errorStr7 = "/Temp1/Temp2/Temp3 is not a file"
+            errorStr8 = "get value from %s error, error is Source contains parsing errors: '%s'\n\t[line 20]: '[Test4\\n'"%(errorConfName, errorConfName)
+            self.assertEqual(log.output, ['ERROR:ConfParser:%s'% errorStr1, 'ERROR:ConfParser:%s'% errorStr2, 'ERROR:ConfParser:%s'% errorStr3, 'ERROR:ConfParser:%s'% errorStr4, 'ERROR:ConfParser:%s'% errorStr5, 'ERROR:ConfParser:%s'% errorStr6, 'ERROR:ConfParser:%s'% errorStr7, 'ERROR:ConfParser:%s'% errorStr8])
+            
     def test_getValueWithDefault(self):
         confName = os.path.abspath(os.path.join(etcPath, "ConfParser/test.conf"))
         result = getValueWithDefault(confName, "Test1", "test1", "2")
@@ -242,11 +262,12 @@ class MyUnitTest(unittest.TestCase):
         errorConfName = os.path.abspath(os.path.join(etcPath, "ConfParser/error.conf"))
         result = getValueWithDefault(errorConfName, "Test2", "test11", "error")
         self.assertEqual(result, "error")
-
+    
     def test_Class_ConfParser_init(self):
-        parserResult = ConfParser("/Temp1/Temp2/Temp3")
-        self.assertLogs(parserResult, "init ConfParser")
-        
+        with self.assertLogs(confLogger) as log:
+            tempConfParser = ConfParser("/Temp1/Temp2/Temp3")
+            self.assertEqual(log.output, ['ERROR:ConfParser:/Temp1/Temp2/Temp3 is not a file'])
+
     def test_Class_ConfParser_getValue(self):
         result = self.testConfParser.getValue("Test1", "test1")
         self.assertEqual(result, "1")
@@ -286,14 +307,16 @@ class MyUnitTest(unittest.TestCase):
         
         result = self.testConfParser.getValue("Test3", "test")
         self.assertEqual(result, None)
-        
-        errorConfPath = os.path.abspath(os.path.join(etcPath, "ConfParser/error.conf"))
-        parserResult = ConfParser(errorConfPath)
-        self.assertLogs(parserResult, "init ConfParser error, error is Source contains parsing errors: '/Users/wxj/workplace/MyProject/github/PyTestModule/etc/ConfParser/error.conf'\n[line 20]: '[Test4\n'")
-        
-        result = parserResult.getValue("Test2", "test11")
-        self.assertEqual(result, "11")
 
+        with self.assertLogs(confLogger) as log:
+            errorConfPath = os.path.abspath(os.path.join(etcPath, "ConfParser/error.conf"))
+            parserResult = ConfParser(errorConfPath)
+            errorStr = "init ConfParser error, error is Source contains parsing errors: '/Users/wxj/workplace/MyProject/github/PyTestModule/etc/ConfParser/error.conf'\n\t[line 20]: '[Test4\\n'"
+            self.assertEqual(log.output, ["ERROR:ConfParser:%s"%errorStr])
+            
+            result = parserResult.getValue("Test2", "test11")
+            self.assertEqual(result, "11")
+    
     def test_Class_ConfParser_getValueWithDefault(self):
         result = self.testConfParser.getValueWithDefault("Test1", "test1", 1)
         self.assertEqual(result, "1")
@@ -388,30 +411,17 @@ class MyUnitTest(unittest.TestCase):
         errorConfPath = os.path.abspath(os.path.join(etcPath, "ConfParser/error.conf"))
         parserResult = ConfParser(errorConfPath)
         result = parserResult.getIntWithDefault("Test2", "test11", "test33")
-        self.assertEqual(result, 11)
-
+        self.assertEqual(result, 11)    
+    '''
     def test_sendEmail(self):
-        attach1 = os.path.abspath(os.path.join(__file__, "../README.md"))
-        result = sendEmail('smtp.qq.com', '***@qq.com', '***', ['***@qq.com', '***@qq.com'], '**<***@qq.com>, **<***@qq.com>', "测试邮件", "这是一封测试邮件", {attach1: "log1"})
-        #self.assertLogs(result, "email send success.")
-        self.assertLogs(result, "email send error:  (535, b'Login Fail. Please enter your authorization code to login. More information in http://service.mail.qq.com/cgi-bin/help?subtype=1&&id=28&&no=1001256')")
-
+        with self.assertLogs(emailLogger) as log:
+            attach1 = os.path.abspath(os.path.join(__file__, "../README.md"))
+            result = sendEmail('smtp.qq.com', '***@qq.com', '***', ['***@qq.com', '***@qq.com'], '**<***@qq.com>, **<***@qq.com>', "测试邮件", "这是一封测试邮件", {attach1: "log1"})
+            #successStr = "email send success."
+            #self.assertEqual(log.output, ["DEBUG:EmailSender:%s"%successStr])
+            errorStr = "email send error:  (535, b'Login Fail. Please enter your authorization code to login. More information in http://service.mail.qq.com/cgi-bin/help?subtype=1&&id=28&&no=1001256')"
+            self.assertEqual(log.output, ["ERROR:EmailSender:%s"%errorStr])
+            '''
+        
 if __name__ == "__main__":
-    suite = unittest.TestSuite()
-    suite.addTest(MyUnitTest('test_getJsonFromFile'))
-    suite.addTest(MyUnitTest('test_getJsonFromStr'))
-    suite.addTest(MyUnitTest('test_valueFromJsonFile'))
-    suite.addTest(MyUnitTest('test_valeFromJsonStr'))
-    suite.addTest(MyUnitTest('test_saveJsonFile'))
-
-    suite.addTest(MyUnitTest('test_getValueFromConf'))
-    suite.addTest(MyUnitTest('test_getValueWithDefault'))
-    suite.addTest(MyUnitTest('test_Class_ConfParser_init'))
-    suite.addTest(MyUnitTest('test_Class_ConfParser_getValue'))
-    suite.addTest(MyUnitTest('test_Class_ConfParser_getValueWithDefault'))
-    suite.addTest(MyUnitTest('test_Class_ConfParser_getIntWithDefault'))
-
-    suite.addTest(MyUnitTest('test_sendEmail'))
-
-    runner = unittest.TextTestRunner()
-    runner.run(suite)
+    unittest.main()
