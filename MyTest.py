@@ -224,6 +224,33 @@ class MyUnitTest(unittest.TestCase):
         result = getDefaultFromJsonObj('test', ("success", {"A": 1, "B": 2}, [22.7, 33.6, 55.4]))
         self.assertEqual(result, (("success", {"A": 1, "B": 2}, [22.7, 33.6, 55.4]), "success"))
     
+    def test_combineUnitList(self):
+        list1 = [3, 5, 7, 6, 9]
+        list2 = [4, 7, 3, 6, 8]
+        newList = combineUnitList(list1, list2)
+        self.assertEqual(newList, [3, 5, 7, 6, 9, 4, 8])
+
+        list1 = ["test1", "test2", "test3", "test1", "测试"]
+        list2 = ["测试1", "测试", "测试1", "test4", "test1"]
+        newList = combineUnitList(list1, list2)
+        self.assertEqual(newList, ["test1", "test2", "test3", "测试", "测试1", "test4"])
+
+        list1 = [3.9, 5.6, 7, 6, 9]
+        list2 = [4, 7, 3, 6, 8]
+        newList = combineUnitList(list1, list2)
+        self.assertEqual(newList, [3.9, 5.6, 7, 6, 9, 4, 3, 8])
+
+        list1 = None
+        list2 = None
+        newList = combineUnitList(list1, list2)
+        self.assertEqual(newList, [])
+
+        list1 = []
+        list2 = None
+        newList = combineUnitList(list1, list2)
+        self.assertEqual(newList, [])
+
+
     #ConfParser的测试样例
     def test_getValueFromConf(self):
         confName = os.path.abspath(os.path.join(etcPath, "ConfParser/test.conf"))
