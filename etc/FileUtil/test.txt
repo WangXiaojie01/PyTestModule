@@ -1,0 +1,9 @@
+this is a file 
+这是一个中文测试文件
+
+
+file的中文翻译是文件
+
+测试 Test 
+
+[]/////n\n/n

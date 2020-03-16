@@ -4,9 +4,11 @@
 import os, sys
 import unittest
 import logging
+import datetime
+import shutil
 
 #在这里添加要进行单元测试的源码目录名
-codeArray = ["ConfParser", "JsonUtil", "LoggerController", "MySqlUtil", "PublisherSubscriber", "EmailSender", "EmailController"]
+codeArray = ["ConfParser", "JsonUtil", "FileUtil", "LoggerController", "PublisherSubscriber"]
 
 rootPath = os.path.abspath(os.path.join(__file__, "../.."))
 for codeName in codeArray:
@@ -17,7 +19,9 @@ for codeName in codeArray:
 #导入源码
 from JsonUtil import *
 from ConfParser import *
-from EmailSender import *
+from FileUtil import *
+from Logger import *
+from LogController import *
 
 etcPath = os.path.join(os.path.join(__file__, "../etc"))
 
@@ -250,7 +254,6 @@ class MyUnitTest(unittest.TestCase):
         newList = combineUnitList(list1, list2)
         self.assertEqual(newList, [])
 
-
     #ConfParser的测试样例
     def test_getValueFromConf(self):
         confName = os.path.abspath(os.path.join(etcPath, "ConfParser/test.conf"))
@@ -359,7 +362,7 @@ class MyUnitTest(unittest.TestCase):
         result = getValueWithDefault(errorConfName, "Test2", "test11", "error")
         self.assertEqual(result, "error")
     
-    def test_Class_ConfParser_init(self):
+    def test_Class_ConfParser_New(self):
         with self.assertLogs(confLogger) as log:
             tempConfParser = ConfParser("/Temp1/Temp2/Temp3")
             self.assertEqual(log.output, ['ERROR:ConfParser:/Temp1/Temp2/Temp3 is not a file'])
@@ -509,19 +512,351 @@ class MyUnitTest(unittest.TestCase):
         result = parserResult.getIntWithDefault("Test2", "test11", "test33")
         self.assertEqual(result, 11)  
     
-    #EmailSender的测试样例
-    def test_sendEmail(self):
-        attach1 = os.path.abspath(os.path.join(__file__, "../README.md"))
-        result = sendEmail('smtp.qq.com', '***@qq.com', '***', ['***@qq.com', '***@qq.com'], '**<***@qq.com>, **<***@qq.com>', "测试邮件", "这是一封测试邮件", {attach1: "log1"})
-        self.assertFalse(result)
-        #result = sendEmail('smtp.qq.com', '***@qq.com', '***', ['***@qq.com', '***@qq.com'], '**<***@qq.com>, **<***@qq.com>', "测试邮件", "这是一封测试邮件", {attach1: "log1"})
-        #self.assertTrue(result)
+    #FileUtil的测试样例
+    def test_readFile(self):
+        with self.assertLogs(fileLogger) as log:
+            fileName = os.path.abspath(os.path.join(etcPath, "FileUtil/test.txt"))
+            result = readFile(fileName)
+            self.assertEqual(result, "this is a file \n这是一个中文测试文件\n\n\nfile的中文翻译是文件\n\n测试 Test \n\n[]/////n\\n/n\n")
+
+            fileName = os.path.abspath(os.path.join(etcPath, "FileUtil/empty.txt"))
+            result = readFile(fileName)
+            self.assertEqual(result, "")
+
+            fileName = "/Temp/Temp2/Temp.txt"
+            result = readFile(fileName)
+            self.assertIsNone(result)
+
+            result = readFile(None)
+            self.assertIsNone(result)
+            self.assertEqual(log.output, ["WARNING:FileUtil:%s is None or is not a file"%fileName, "WARNING:FileUtil:None is None or is not a file"]) 
+    
+    #Logger的测试样例
+    def test_Class_Logger_New(self):
+        myCustomLogger = Logger()
+        self.assertEqual(myCustomLogger.logLevel, LOG_TYPE_DEBUG)
+        self.assertEqual(myCustomLogger.logName, "default")
+        self.assertEqual(myCustomLogger.logPath, os.path.abspath(os.path.join(rootPath, "LoggerController/Code")))
+        self.assertEqual(myCustomLogger.logFile, None)
+        self.assertEqual(myCustomLogger.logger, None)
+        self.assertEqual(myCustomLogger.logHandler, None)
+        self.assertFalse(myCustomLogger.printToConsole)
+        self.assertFalse(myCustomLogger.redirectLogFile)
+
+    def test_Class_Logger_flushLog(self):
+        myCustomLogger = Logger()
+        myCustomLogger.flushLog()
+        self.assertIsNotNone(myCustomLogger.logger)
+        self.assertIsNotNone(myCustomLogger.logHandler)
+        fileName = datetime.datetime.now().strftime("%Y%m%d.log")
+        self.assertEqual(myCustomLogger.logFile, fileName)
+        filePath = os.path.abspath(os.path.join(rootPath, "LoggerController/Code"))
+        result = os.path.exists(filePath)
+        self.assertTrue(result)
+        filePathName = os.path.join(filePath, fileName)
+        result = os.path.exists(filePathName)
+        self.assertTrue(result)
+        if os.path.exists(filePathName):
+            os.remove(filePathName)
+    
+    def test_Class_Logger_openLog(self):
+        myCustomLogger = Logger()
+        logRootPath = os.path.abspath(os.path.join(etcPath, "LoggerController"))
+        if os.path.exists(logRootPath):
+            shutil.rmtree(logRootPath)
+        myCustomLogger.openLog("TestLogger", LOG_TYPE_ERROR, logRootPath)
+        self.assertFalse(myCustomLogger.redirectLogFile)
+        self.assertEqual(myCustomLogger.logLevel, LOG_TYPE_ERROR)
+        self.assertEqual(myCustomLogger.logName, "TestLogger")
+        self.assertEqual(myCustomLogger.logPath, logRootPath)
+        self.assertFalse(myCustomLogger.printToConsole)
+        fileName = datetime.datetime.now().strftime("%Y%m%d.log")
+        self.assertEqual(myCustomLogger.logFile, fileName)
+        self.assertIsNotNone(myCustomLogger.logger)
+        self.assertIsNotNone(myCustomLogger.logHandler)
+        logPathExist = os.path.exists(logRootPath)
+        self.assertTrue(logPathExist)
+        logFileExist = os.path.isfile(os.path.join(logRootPath, fileName))
+        self.assertTrue(logFileExist)
+
+        #这里并非重复代码了
+        myCustomLogger.openLog("TestLogger", LOG_TYPE_ERROR, logRootPath)
+        self.assertFalse(myCustomLogger.redirectLogFile)
+        self.assertEqual(myCustomLogger.logLevel, LOG_TYPE_ERROR)
+        self.assertEqual(myCustomLogger.logName, "TestLogger")
+        self.assertEqual(myCustomLogger.logPath, logRootPath)
+        self.assertFalse(myCustomLogger.printToConsole)
+        fileName = datetime.datetime.now().strftime("%Y%m%d.log")
+        self.assertEqual(myCustomLogger.logFile, fileName)
+        self.assertIsNotNone(myCustomLogger.logger)
+        self.assertIsNotNone(myCustomLogger.logHandler)
+        logPathExist = os.path.exists(logRootPath)
+        self.assertTrue(logPathExist)
+        logFileExist = os.path.isfile(os.path.join(logRootPath, fileName))
+        self.assertTrue(logFileExist)
+
+        myCustomLogger.openLog("MyTestLogger", LOG_TYPE_INFO, logRootPath, "MyCustom.log")
+        self.assertTrue(myCustomLogger.redirectLogFile)
+        self.assertEqual(myCustomLogger.logLevel, LOG_TYPE_INFO)
+        self.assertEqual(myCustomLogger.logName, "MyTestLogger")
+        self.assertEqual(myCustomLogger.logPath, logRootPath)
+        self.assertFalse(myCustomLogger.printToConsole)
+        self.assertEqual(myCustomLogger.logFile, "MyCustom.log")
+        self.assertIsNotNone(myCustomLogger.logger)
+        self.assertIsNotNone(myCustomLogger.logHandler)
+        logPathExist = os.path.exists(logRootPath)
+        self.assertTrue(logPathExist)
+        logFileExist = os.path.isfile(os.path.join(logRootPath, "MyCustom.log"))
+        self.assertTrue(logFileExist)
+
+    def test_Class_Logger_logDebg(self):
+        myCustomLogger = Logger()
+        logRootPath = os.path.abspath(os.path.join(etcPath, "LoggerController2"))
+        if os.path.exists(logRootPath):
+            shutil.rmtree(logRootPath)
+        myCustomLogger.openLog("MyTestLogger", LOG_TYPE_DEBUG, logRootPath, "MyCustom.log")
+        with self.assertLogs(myCustomLogger.logger) as log:
+            logMsg = "this is a debug msg"
+            myCustomLogger.logDebug(logMsg)
+            self.assertEqual(log.output, ["DEBUG:MyTestLogger:%s"%logMsg])
+
+            logFile = os.path.abspath(os.path.join(logRootPath, "MyCustom.log"))
+            logFileExist = os.path.isfile(logFile)
+            self.assertTrue(logFileExist)
+            if logFileExist:
+                fileLogMsg = readFile(logFile)
+                index = fileLogMsg.find("DEBUG: this is a debug msg")
+                subStr = fileLogMsg[index:]
+                self.assertEqual(subStr, "DEBUG: this is a debug msg\n")
+
+        if os.path.exists(logRootPath):
+            shutil.rmtree(logRootPath)
+        myCustomLogger.openLog("MyTestLogger", LOG_TYPE_INFO, logRootPath, "MyCustom.log")
+        logMsg = "this is a debug msg"
+        myCustomLogger.logDebug(logMsg)
+
+        logFile = os.path.abspath(os.path.join(logRootPath, "MyCustom.log"))
+        logFileExist = os.path.isfile(logFile)
+        self.assertTrue(logFileExist)
+        if logFileExist:
+            fileLogMsg = readFile(logFile)
+            self.assertEqual(fileLogMsg, "")
+            
+        if os.path.exists(logRootPath):
+            shutil.rmtree(logRootPath)
+        myCustomLogger.openLog("MyTestLogger", LOG_TYPE_ERROR, logRootPath, "MyCustom.log")
+        logMsg = "this is a debug msg"
+        myCustomLogger.logDebug(logMsg)
+
+        logFile = os.path.abspath(os.path.join(logRootPath, "MyCustom.log"))
+        logFileExist = os.path.isfile(logFile)
+        self.assertTrue(logFileExist)
+        if logFileExist:
+            fileLogMsg = readFile(logFile)
+            self.assertEqual(fileLogMsg, "")
+
+    def test_Class_Logger_logInfo(self):
+        myCustomLogger = Logger()
+        logRootPath = os.path.abspath(os.path.join(etcPath, "LoggerController2"))
+        if os.path.exists(logRootPath):
+            shutil.rmtree(logRootPath)
+        myCustomLogger.openLog("MyTestLogger", LOG_TYPE_DEBUG, logRootPath, "MyCustom.log")
+        with self.assertLogs(myCustomLogger.logger) as log:
+            logMsg = "this is a info msg"
+            myCustomLogger.logInfo(logMsg)
+            self.assertEqual(log.output, ["INFO:MyTestLogger:%s"%logMsg])
+
+            logFile = os.path.abspath(os.path.join(logRootPath, "MyCustom.log"))
+            logFileExist = os.path.isfile(logFile)
+            self.assertTrue(logFileExist)
+            if logFileExist:
+                fileLogMsg = readFile(logFile)
+                index = fileLogMsg.find("INFO: this is a info msg")
+                subStr = fileLogMsg[index:]
+                self.assertEqual(subStr, "INFO: this is a info msg\n")
+
+        if os.path.exists(logRootPath):
+            shutil.rmtree(logRootPath)
+        myCustomLogger.openLog("MyTestLogger", LOG_TYPE_INFO, logRootPath, "MyCustom.log")
+        with self.assertLogs(myCustomLogger.logger) as log:
+            logMsg = "this is a info msg"
+            myCustomLogger.logInfo(logMsg)
+            self.assertEqual(log.output, ["INFO:MyTestLogger:%s"%logMsg])
+
+            logFile = os.path.abspath(os.path.join(logRootPath, "MyCustom.log"))
+            logFileExist = os.path.isfile(logFile)
+            self.assertTrue(logFileExist)
+            if logFileExist:
+                fileLogMsg = readFile(logFile)
+                index = fileLogMsg.find("INFO: this is a info msg")
+                subStr = fileLogMsg[index:]
+                self.assertEqual(subStr, "INFO: this is a info msg\n")
         
+        if os.path.exists(logRootPath):
+            shutil.rmtree(logRootPath)
+        myCustomLogger.openLog("MyTestLogger", LOG_TYPE_ERROR, logRootPath, "MyCustom.log")
+        logMsg = "this is a info msg"
+        myCustomLogger.logDebug(logMsg)
+
+        logFile = os.path.abspath(os.path.join(logRootPath, "MyCustom.log"))
+        logFileExist = os.path.isfile(logFile)
+        self.assertTrue(logFileExist)
+        if logFileExist:
+            fileLogMsg = readFile(logFile)
+            self.assertEqual(fileLogMsg, "")
+
+    def test_Class_Logger_logError(self):
+        myCustomLogger = Logger()
+        logRootPath = os.path.abspath(os.path.join(etcPath, "LoggerController2"))
+        if os.path.exists(logRootPath):
+            shutil.rmtree(logRootPath)
+        myCustomLogger.openLog("MyTestLogger", LOG_TYPE_DEBUG, logRootPath, "MyCustom.log")
+        with self.assertLogs(myCustomLogger.logger) as log:
+            logMsg = "this is a error msg"
+            myCustomLogger.logError(logMsg)
+            self.assertEqual(log.output, ["ERROR:MyTestLogger:%s"%logMsg])
+
+            logFile = os.path.abspath(os.path.join(logRootPath, "MyCustom.log"))
+            logFileExist = os.path.isfile(logFile)
+            self.assertTrue(logFileExist)
+            if logFileExist:
+                fileLogMsg = readFile(logFile)
+                index = fileLogMsg.find("ERROR: this is a error msg")
+                subStr = fileLogMsg[index:]
+                self.assertEqual(subStr, "ERROR: this is a error msg\n")
+
+        if os.path.exists(logRootPath):
+            shutil.rmtree(logRootPath)
+        myCustomLogger.openLog("MyTestLogger", LOG_TYPE_INFO, logRootPath, "MyCustom.log")
+        with self.assertLogs(myCustomLogger.logger) as log:
+            logMsg = "this is a error msg"
+            myCustomLogger.logError(logMsg)
+            self.assertEqual(log.output, ["ERROR:MyTestLogger:%s"%logMsg])
+
+            logFile = os.path.abspath(os.path.join(logRootPath, "MyCustom.log"))
+            logFileExist = os.path.isfile(logFile)
+            self.assertTrue(logFileExist)
+            if logFileExist:
+                fileLogMsg = readFile(logFile)
+                index = fileLogMsg.find("ERROR: this is a error msg")
+                subStr = fileLogMsg[index:]
+                self.assertEqual(subStr, "ERROR: this is a error msg\n")
+        
+        if os.path.exists(logRootPath):
+            shutil.rmtree(logRootPath)
+        myCustomLogger.openLog("MyTestLogger", LOG_TYPE_ERROR, logRootPath, "MyCustom.log")
+        with self.assertLogs(myCustomLogger.logger) as log:
+            logMsg = "this is a error msg"
+            myCustomLogger.logError(logMsg)
+            self.assertEqual(log.output, ["ERROR:MyTestLogger:%s"%logMsg])
+
+            logFile = os.path.abspath(os.path.join(logRootPath, "MyCustom.log"))
+            logFileExist = os.path.isfile(logFile)
+            self.assertTrue(logFileExist)
+            if logFileExist:
+                fileLogMsg = readFile(logFile)
+                index = fileLogMsg.find("ERROR: this is a error msg")
+                subStr = fileLogMsg[index:]
+                self.assertEqual(subStr, "ERROR: this is a error msg\n")
+
+    def test_Class_Logger_setLogFormat(self):
+        myCustomLogger = Logger()
+        logRootPath = os.path.abspath(os.path.join(etcPath, "LoggerController2"))
+        if os.path.exists(logRootPath):
+            shutil.rmtree(logRootPath)
+        myCustomLogger.openLog("MyTestLogger", LOG_TYPE_DEBUG, logRootPath, "MyCustom.log")
+        myCustomLogger.setLogFormat('<%s>  %%(levelname)s: %%(message)s' % myCustomLogger.logName) 
+        with self.assertLogs(myCustomLogger.logger) as log:
+            debugMsg = "this is a debug msg"
+            myCustomLogger.logDebug(debugMsg)
+            infoMsg = "this is a info msg"
+            myCustomLogger.logInfo(infoMsg)
+            errorMsg = "this is a error msg"
+            myCustomLogger.logError(errorMsg)
+            self.assertEqual(log.output, ["DEBUG:MyTestLogger:%s"%debugMsg, "INFO:MyTestLogger:%s"%infoMsg, "ERROR:MyTestLogger:%s"%errorMsg])
+
+            logFile = os.path.abspath(os.path.join(logRootPath, "MyCustom.log"))
+            logFileExist = os.path.isfile(logFile)
+            self.assertTrue(logFileExist)
+            if logFileExist:
+                fileLogMsg = readFile(logFile)
+                self.assertEqual(fileLogMsg, '<MyTestLogger>  DEBUG: this is a debug msg\n<MyTestLogger>  INFO: this is a info msg\n<MyTestLogger>  ERROR: this is a error msg\n')
+   
+    #LogController的测试样例
+    def test_Class_LogController_New(self):
+        logRoot = os.path.abspath(os.path.join(etcPath, "LogController3"))
+        myLogController = LogController(logRoot)
+        self.assertEqual(myLogController.loggers, {})
+        self.assertEqual(myLogController.logRoot, logRoot)
+        self.assertFalse(myLogController.isPrintToConsole)
+
+    def test_Class_LogController_addLogger(self):
+        logRoot = os.path.abspath(os.path.join(etcPath, "LogController3"))
+        if os.path.exists(logRoot):
+            shutil.rmtree(logRoot)
+        myLogController = LogController(logRoot)
+        logRootExist = os.path.exists(logRoot)
+        self.assertTrue(logRootExist)
+
+        myLogController.addLogger("test1", LOG_TYPE_DEBUG)
+        myLogController.addLogger("test2", LOG_TYPE_INFO)
+        myLogController.addLogger("test3", LOG_TYPE_ERROR)
+
+        logFile = datetime.datetime.now().strftime("%Y%m%d.log")
+        test1Exist = os.path.isfile(os.path.join(logRoot, 'test1', logFile))
+        self.assertTrue(test1Exist)
+        
+        test2Exist = os.path.isfile(os.path.join(logRoot, 'test2', logFile))
+        self.assertTrue(test2Exist)
+        
+        test3Exist = os.path.isfile(os.path.join(logRoot, 'test3', logFile))
+        self.assertTrue(test3Exist)
+
+    def test_Class_LogController_getLogger(self):
+        logRoot = os.path.abspath(os.path.join(etcPath, "LogController3"))
+        if os.path.exists(logRoot):
+            shutil.rmtree(logRoot)
+        myLogController = LogController(logRoot)
+        logRootExist = os.path.exists(logRoot)
+        self.assertTrue(logRootExist)
+
+        myLogController.addLogger("test1", LOG_TYPE_DEBUG)
+        myLogController.addLogger("test2", LOG_TYPE_INFO)
+        myLogController.addLogger("test3", LOG_TYPE_ERROR)
+
+        test1Log = myLogController.getLogger("test1")
+        test2Log = myLogController.getLogger("test2")
+        test3Log = myLogController.getLogger("test3")
+        test4Log = myLogController.getLogger("test4")
+        self.assertIsNone(test4Log)
+
+        test1Log.logInfo("this is my info msg1")
+        test2Log.logInfo("this is my info msg2")
+        test3Log.logInfo("this is my info msg3")
+
+        logFileName = datetime.datetime.now().strftime("%Y%m%d.log")
+
+        log1 = os.path.abspath(os.path.join(logRoot, "test1", logFileName))
+        logMsg1 = readFile(log1)
+        index = logMsg1.find("this is my info msg1")
+        subStr = logMsg1[index:]
+        self.assertEqual(subStr, "this is my info msg1\n")
+        
+        log2 = os.path.abspath(os.path.join(logRoot, "test2", logFileName))
+        logMsg2 = readFile(log2)
+        index = logMsg2.find("this is my info msg2")
+        subStr = logMsg2[index:]
+        self.assertEqual(subStr, "this is my info msg2\n")
+
+        log3 = os.path.abspath(os.path.join(logRoot, "test3", logFileName))
+        logMsg3 = readFile(log3)
+        self.assertEqual(logMsg3, "")
+ 
 if __name__ == "__main__":
     unittest.main()
     '''
     suite = unittest.TestSuite()
-    suite.addTest(MyUnitTest("test_sendEmail"))
+    suite.addTest(MyUnitTest("test_Class_Logger_setLogFormat"))
     runner = unittest.TextTestRunner()
-    runner.run(suite)
-    '''
+    runner.run(suite)'''
+    
